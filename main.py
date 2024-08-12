@@ -93,7 +93,9 @@ def researcher(state: StatusUpdateState) -> StatusUpdateState:
     Consider these additional factors:
     - Content Relevance: Does the update focus on relevant information without introducing extraneous details?
     - Clarity: Is the key message clear and easy for the target audience to understand?
-    - Jargon: Does it avoid technical jargon or provide clear explanations when necessary? 
+    - Jargon: Does it avoid technical jargon or provide clear explanations when necessary?
+    - Conciseness: Is the update concise and within the 500-character limit? 
+    - Opinion and Stance: Does the update express a clear and opinionated stance on the topic? 
 
     Provide your analysis in a detailed and informative manner.
     """
@@ -129,6 +131,7 @@ def draft_analyzer(state: StatusUpdateState) -> StatusUpdateState:
     * Opinionated: It should take a clear and opinionated stance on the topic.
     * No External References: Do not include hashtags, links, or URLs.
     - Conciseness and Jargon:  Avoid unnecessary words and technical jargon. 
+    - Single Paragraph: Ensure the update is written in a single paragraph, without headings. 
 
     """
     completion = client.chat.completions.create(
@@ -199,15 +202,11 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     char_count = len(new_draft)
     print(f"Writer's Draft: {new_draft}")
 
-    # Check only for the maximum character limit
+    # Character count check moved to the writer function
     if char_count <= 500:
         state["versions"].append(new_draft)
-        if fact_check_feedback.lower().startswith("verified:") or fact_check_feedback == 'No fact check performed yet':
-            print("The Writer has finished and is sending the draft to the Editor.\n")
-            return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_editor"}
-        else:
-            print("The Writer has finished and is sending the draft to the Fact Checker.\n")
-            return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_fact_check"}
+        print("The Writer has finished and is sending the draft to the Fact Checker.\n")
+        return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_fact_check"}
     else:
         print("The Writer is making further revisions to meet the character limit.\n")
         return {"status": "editing", "current_draft": new_draft}
@@ -269,7 +268,7 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
         # Record the time when the editor approves
         editor_approval_time = time.time()
         duration = editor_approval_time - state["start_time"]
-        print(f"Time from initial draft to editor approval: {duration:.2f} seconds")
+        print(f"Time from initial draft to editor approval: {int(duration // 60)} minutes and {duration % 60:.2f} seconds")
         print("The Editor has approved the draft. Sending it to the User for final approval.\n")
         return {"status": "user_approval", "editor_feedback": feedback}
     else:
@@ -303,9 +302,13 @@ def fact_checker(state: StatusUpdateState) -> StatusUpdateState:
     * Focus on factual accuracy and avoid fact-checking opinions or subjective statements.
     * Identify any statements or claims that cannot be verified based on the given information.
     * If a fact is unverifiable, suggest ways to either remove it or provide supporting evidence.
+    * Ensure the status update adheres to the following guidelines:
+        - Character Limit: The update should be within 500 characters.
+        - Text-Only:  No images or non-text elements.
+        - No External References: No hashtags, links, or URLs.
 
     Your response:
-    - If everything is accurate, start with "Verified:".
+    - If everything is accurate and adheres to the guidelines, start with "Verified:".
     - If there are issues, start with "Needs revision:" and then list the specific parts that need editing.
     """
     completion = client.chat.completions.create(
@@ -335,16 +338,16 @@ def should_continue(state: StatusUpdateState) -> str:
         return "researcher"
     elif state["status"] == "research_complete": 
         return "writer"
-    elif state["status"] == "ready_for_fact_check":
-        return "fact_checker"
     elif state["status"] == "fact_checked":
         return "editor"
     elif state["status"] == "needs_revision":
-        return "writer" 
+        return "writer"  # Writer should receive user feedback as well
     elif state["status"] == "ready_for_editor":
         return "editor"
     elif state["status"] == "user_approval":
         return "user"
+    elif state["status"] == "ready_for_fact_check":
+        return "fact_checker"
     else:
         print(f"Error: Unhandled status '{state['status']}' in should_continue function.")
         return END
@@ -355,7 +358,7 @@ workflow = StateGraph(StatusUpdateState)
 # Add nodes
 workflow.add_node("user", user)
 workflow.add_node("researcher", researcher)
-workflow.add_node("draft_analyzer", draft_analyzer) 
+workflow.add_node("draft_analyzer", draft_analyzer)
 workflow.add_node("writer", writer)
 workflow.add_node("fact_checker", fact_checker)
 workflow.add_node("editor", editor)
@@ -364,7 +367,7 @@ workflow.add_node("editor", editor)
 workflow.set_entry_point("user")
 workflow.add_conditional_edges("user", should_continue)
 workflow.add_conditional_edges("researcher", should_continue)
-workflow.add_conditional_edges("draft_analyzer", should_continue) 
+workflow.add_conditional_edges("draft_analyzer", should_continue)
 workflow.add_conditional_edges("writer", should_continue)
 workflow.add_conditional_edges("fact_checker", should_continue)
 workflow.add_conditional_edges("editor", should_continue)
