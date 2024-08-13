@@ -202,13 +202,15 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     char_count = len(new_draft)
     print(f"Writer's Draft: {new_draft}")
 
-    # Character count check moved to the writer function
+    # Character count check moved here:
     if char_count <= 500:
         state["versions"].append(new_draft)
         print("The Writer has finished and is sending the draft to the Fact Checker.\n")
         return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_fact_check"}
     else:
         print("The Writer is making further revisions to meet the character limit.\n")
+        # Add more specific instructions for shortening the draft:
+        state["editor_feedback"] += "\nPlease shorten the draft to be within 500 characters. Focus on the most critical information and remove any unnecessary details."
         return {"status": "editing", "current_draft": new_draft}
 
 def editor(state: StatusUpdateState) -> StatusUpdateState:
@@ -348,6 +350,8 @@ def should_continue(state: StatusUpdateState) -> str:
         return "user"
     elif state["status"] == "ready_for_fact_check":
         return "fact_checker"
+    elif state["status"] == "editing": # Added to handle the 'editing' status
+        return "writer" 
     else:
         print(f"Error: Unhandled status '{state['status']}' in should_continue function.")
         return END
