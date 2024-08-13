@@ -147,7 +147,7 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     state.update(increment_and_check_iterations(state))
     print("The Writer is now working on the status update, incorporating feedback...\n")
     researcher_analysis = state.get('researcher_analysis', 'No research analysis available')
-    editor_feedback = state.get('editor_feedback', 'No editor feedback yet')
+    editor_feedback = state.get('editor_feedback', 'No editor feedback yet') 
     draft_analysis = state.get('draft_analysis', 'No draft analysis available.')
 
     # Build version history string, including character count rejections
@@ -179,18 +179,11 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     2. If the editor has provided feedback, carefully consider their suggestions and make appropriate revisions.
     3. Carefully review the previous versions and the reasons they were rejected. Avoid repeating the same mistakes.
 
-    Guidelines for the Perfect Status Update Structure:
-    1. Hook (10% of content, aim for 5-10 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Capture attention with a compelling fact, statistic, or provocative question.
-    2. Introduction (15% of content, aim for 8-15 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Briefly summarize the key point of the news in 1-2 sentences.
-    3. Main Content (50% of content, aim for 25-40 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Expand on the introduction with details, insights, or analysis.
-    4. Value Proposition (20% of content, aim for 10-20 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Highlight the significance or impact of the news.
-    5. Call to Action (5% of content, aim for 3-5 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): End with a very brief question to encourage engagement.
-
     Additional Guidelines:
     - Ensure the update is within 500 characters.
     - Only produce text content. No images or non-text elements.
     - Never use hashtags.
-    - Do NOT use links or URLs.
+    - Do NOT use links, or URLs.
     - Do NOT mention or imply additional information beyond what's in the status update.
     - Be opinionated and take a clear stance on the topic.
     - Focus on using abbreviations, compared to long technical jargon.
@@ -198,32 +191,15 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     - Write in 1 paragraph only. This means NO new lines, NO multiple paragraphs, just a single block of text.
     - Do not include any subheadings.
 
-    To ensure conciseness, consider these techniques:
-    - **Use strong verbs and active voice.**
-    - **Eliminate unnecessary words and phrases.** 
-    - **Replace long phrases with shorter equivalents.**
-    - **Prioritize the most impactful information.**
-    - **Focus on the core message and key details.**
-
-    Please provide your text-only, opinionated status update following this structure, incorporating insights from the researcher, addressing editor feedback, ensuring factual accuracy, and using the following format:
-
-    RESPONSE_START
-    [Write your status update here]
-    RESPONSE_END
-    <-stop-> 
+    Please provide your text-only, opinionated status update following these instructions, incorporating insights from the researcher, addressing editor feedback, and ensuring factual accuracy:
     """
 
     completion = client.chat.completions.create(
         model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
-        stop=["<-stop->"]  # Set the stop string
     )
     new_draft = completion.choices[0].message.content
-
-    # Extract the status update from the response
-    new_draft = new_draft.split("RESPONSE_START")[1].split("RESPONSE_END")[0].strip()
-
     char_count = len(new_draft)
     print(f"Writer's Draft: {new_draft}")
 
@@ -280,7 +256,7 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
     completion = client.chat.completions.create(
         model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=1.5,
     )
     feedback = completion.choices[0].message.content
     print(f"Editor Feedback: {feedback}")
