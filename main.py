@@ -149,7 +149,6 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     print("The Writer is now working on the status update, incorporating feedback...\n")
     researcher_analysis = state.get('researcher_analysis', 'No research analysis available')
     editor_feedback = state.get('editor_feedback', 'No editor feedback yet') 
-    fact_check_feedback = state.get('fact_check_result', 'No fact check performed yet')
     draft_analysis = state.get('draft_analysis', 'No draft analysis available.')
 
     prompt = f"""
@@ -158,7 +157,6 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     Original draft: {state['draft']}
     Researcher's analysis: {researcher_analysis}
     Editor's feedback: {editor_feedback} 
-    Fact checker's feedback: {fact_check_feedback}
     Draft Analysis: {draft_analysis}
     Editor Feedback History:
     {state['editor_history']}
@@ -166,11 +164,6 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     Instructions:
     1. If the researcher has provided analysis, incorporate relevant insights into your draft.
     2. If the editor has provided feedback, carefully consider their suggestions and make appropriate revisions.
-    3. If the fact checker has provided feedback, review their suggestions and make necessary changes to ensure accuracy. Pay special attention to:
-    a. Any specific facts or claims that were flagged as inaccurate or unverifiable.
-    b. Suggestions for rephrasing or clarifying certain points.
-    c. Any additional context or information that needs to be included or removed.
-    4. If no changes are suggested by the fact checker, editor, or researcher, refine the existing draft to improve its impact and clarity.
 
     Guidelines for the Perfect Status Update Structure:
     1. Hook (10% of content, aim for 5-10 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Capture attention with a compelling fact, statistic, or provocative question.
@@ -205,8 +198,8 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     # Character count check moved here:
     if char_count <= 500:
         state["versions"].append(new_draft)
-        print("The Writer has finished and is sending the draft to the Fact Checker.\n")
-        return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_fact_check"}
+        print("The Writer has finished and is sending the draft to the Editor.\n") # Changed from Fact Checker to Editor
+        return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_editor"} # Changed status
     else:
         print("The Writer is making further revisions to meet the character limit.\n")
         # Add more specific instructions for shortening the draft:
@@ -290,44 +283,6 @@ def extract_score(feedback: str) -> int:
         print("Warning: No score found in editor feedback. Assuming needs revision.")
         return 0  # Assume needs revision if no score is found
 
-def fact_checker(state: StatusUpdateState) -> StatusUpdateState:
-    state.update(increment_and_check_iterations(state))
-    print("The Fact Checker is verifying the draft...\n")
-    current_draft = state.get('current_draft', state['draft'])  # Use 'draft' if 'current_draft' is not present
-    prompt = f"""
-    You are a meticulous fact checker. Your task is to verify the accuracy of the following threads.net status update:
-
-    Original draft: {state['draft']}
-    Current status update: {current_draft}
-
-    Instructions:
-    * Focus on factual accuracy and avoid fact-checking opinions or subjective statements.
-    * Identify any statements or claims that cannot be verified based on the given information.
-    * If a fact is unverifiable, suggest ways to either remove it or provide supporting evidence.
-    * Ensure the status update adheres to the following guidelines:
-        - Character Limit: The update should be within 500 characters.
-        - Text-Only:  No images or non-text elements.
-        - No External References: No hashtags, links, or URLs.
-
-    Your response:
-    - If everything is accurate and adheres to the guidelines, start with "Verified:".
-    - If there are issues, start with "Needs revision:" and then list the specific parts that need editing.
-    """
-    completion = client.chat.completions.create(
-        model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    fact_check_result = completion.choices[0].message.content
-    print(f"Fact-Checker Result: {fact_check_result}")
-
-    if fact_check_result.lower().startswith("verified:"):
-        print("The Fact Checker has verified the draft. Sending it to the Editor.\n")
-        return {"status": "fact_checked", "fact_check_result": fact_check_result}
-    else:
-        print("The Fact Checker found issues. Sending the draft back to the Writer for revisions.\n")
-        return {"status": "needs_revision", "fact_check_result": fact_check_result}
-
 def should_continue(state: StatusUpdateState) -> str:
     print(f"Deciding next step. Current status: {state['status']}")
     if state["iteration_count"] > 30:
@@ -340,18 +295,14 @@ def should_continue(state: StatusUpdateState) -> str:
         return "researcher"
     elif state["status"] == "research_complete": 
         return "writer"
-    elif state["status"] == "fact_checked":
-        return "editor"
     elif state["status"] == "needs_revision":
         return "writer"  # Writer should receive user feedback as well
-    elif state["status"] == "ready_for_editor":
+    elif state["status"] == "ready_for_editor": # Changed from ready_for_fact_check
         return "editor"
     elif state["status"] == "user_approval":
         return "user"
-    elif state["status"] == "ready_for_fact_check":
-        return "fact_checker"
-    elif state["status"] == "editing": # Added to handle the 'editing' status
-        return "writer" 
+    elif state["status"] == "editing":
+        return "writer"
     else:
         print(f"Error: Unhandled status '{state['status']}' in should_continue function.")
         return END
@@ -359,12 +310,11 @@ def should_continue(state: StatusUpdateState) -> str:
 # Create the graph
 workflow = StateGraph(StatusUpdateState)
 
-# Add nodes
+# Add nodes (Removed fact_checker node)
 workflow.add_node("user", user)
 workflow.add_node("researcher", researcher)
 workflow.add_node("draft_analyzer", draft_analyzer)
 workflow.add_node("writer", writer)
-workflow.add_node("fact_checker", fact_checker)
 workflow.add_node("editor", editor)
 
 # Set up the flow
@@ -373,7 +323,7 @@ workflow.add_conditional_edges("user", should_continue)
 workflow.add_conditional_edges("researcher", should_continue)
 workflow.add_conditional_edges("draft_analyzer", should_continue)
 workflow.add_conditional_edges("writer", should_continue)
-workflow.add_conditional_edges("fact_checker", should_continue)
+# Removed fact_checker edge
 workflow.add_conditional_edges("editor", should_continue)
 
 # Compile the graph
@@ -394,7 +344,6 @@ def main():
         "versions": [initial_draft],
         "researcher_analysis": "",
         "editor_feedback": "",
-        "fact_check_result": "",
         "iteration_count": 0,
         "draft_analysis": "",  
         "editor_history": [],
@@ -418,8 +367,6 @@ def main():
     print(result.get('researcher_analysis', 'No researcher analysis available'))
     print("\nFinal Editor Feedback:")
     print(result.get('editor_feedback', 'No editor feedback available'))
-    print("\nFinal Fact Check Result:")
-    print(result.get('fact_check_result', 'No fact check result available'))
     print("\nDraft Analysis:")  # Added for draft_analyzer
     print(result.get('draft_analysis', 'No draft analysis available'))
     print("\nMessages:")
