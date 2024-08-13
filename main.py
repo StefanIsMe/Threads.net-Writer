@@ -77,27 +77,24 @@ def researcher(state: StatusUpdateState) -> StatusUpdateState:
     state.update(increment_and_check_iterations(state))
     print("The Researcher is analyzing the draft...\n")
     prompt = f"""
-    Analyze the following draft of a threads.net status update and provide insights that can help the writer improve it:
+    You are a researcher tasked with analyzing the following draft of a threads.net status update:
 
     Draft: {state['draft']}
+
+    Instructions:
+    * Your role is to provide insights and information about the potential target audience, relevant topics, and potential opinion groups that might be interested in this status update.
+    * **Do NOT provide any guidance on writing style, structure, or specific wording.** Your focus is purely on research and analysis. 
+
+    Provide information on the following:
+    * **Target Audience:** Who are the most likely audiences for this status update on Threads.net? Consider demographics, interests, and online behavior. Be specific and provide examples.
+    * **Relevant Topics:** What broader topics or themes does this status update relate to? Identify any trending topics or discussions on Threads.net that might be relevant.
+    * **Opinion Groups:**  Are there any specific groups or communities on Threads.net that might have strong opinions or perspectives on the subject of this status update? 
+    * **Key Insights:**  Based on your research, are there any additional insights or data points that could be valuable for the writer to consider?
 
     Threads.net Profile:
     Threads is a text-based social networking service developed by Meta Platforms (formerly Facebook). Launched in July 2023, it is designed for sharing text updates and joining public conversations. Users can post up to 500 characters of text and include links, photos, and videos up to 5 minutes in length. It is closely linked to Instagram, allowing users to easily share their Threads posts to their Instagram stories. Threads is also considered a competitor to Twitter.com.
 
-    Focus on these aspects:
-    * Target Audience: Who is the intended audience, and what are their interests, considering the nature of Threads.net and its competition with Twitter?
-    * Key Message: What is the main takeaway from the status update? Is it clear and concise?
-    * Writing Style: Is the style engaging, informative, and appropriate for a text-focused platform like Threads.net?
-    * Potential Gaps: Is there any missing information or context that would enhance the update, taking into account the features and limitations of Threads?
-
-    Consider these additional factors:
-    - Content Relevance: Does the update focus on relevant information without introducing extraneous details?
-    - Clarity: Is the key message clear and easy for the target audience to understand?
-    - Jargon: Does it avoid technical jargon or provide clear explanations when necessary?
-    - Conciseness: Is the update concise and within the 500-character limit? 
-    - Opinion and Stance: Does the update express a clear and opinionated stance on the topic? 
-
-    Provide your analysis in a detailed and informative manner.
+    Focus solely on providing research-based information and avoid making any writing suggestions. 
     """
     completion = client.chat.completions.create(
         model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
@@ -121,6 +118,7 @@ def draft_analyzer(state: StatusUpdateState) -> StatusUpdateState:
     * Break down the draft into its key components (Hook, Introduction, Main Content, Value Proposition, Call to Action).
     * Analyze each component's effectiveness and adherence to the guidelines below.
     * Provide specific suggestions for improvement for each component.
+    * **Never propose a potential version of the status update. Your role is strictly to analyze and provide feedback, not to write or suggest revisions.**
 
     Guidelines for a Perfect Status Update:
     * Conciseness: The update should be within 500 characters.
@@ -133,6 +131,7 @@ def draft_analyzer(state: StatusUpdateState) -> StatusUpdateState:
     - Conciseness and Jargon:  Avoid unnecessary words and technical jargon. 
     - Single Paragraph: Ensure the update is written in a single paragraph, without headings. 
 
+    Focus on providing constructive feedback and suggestions for improvement. Your analysis should help the writer understand the strengths and weaknesses of their initial draft.
     """
     completion = client.chat.completions.create(
         model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
@@ -148,8 +147,22 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     state.update(increment_and_check_iterations(state))
     print("The Writer is now working on the status update, incorporating feedback...\n")
     researcher_analysis = state.get('researcher_analysis', 'No research analysis available')
-    editor_feedback = state.get('editor_feedback', 'No editor feedback yet') 
+    editor_feedback = state.get('editor_feedback', 'No editor feedback yet')
     draft_analysis = state.get('draft_analysis', 'No draft analysis available.')
+
+    # Build version history string, including character count rejections
+    version_history_str = ""
+    for i, version in enumerate(state["versions"]):
+        if i == 0:  # Skip the initial empty draft
+            continue
+        rejection_reason = ""
+        if i == len(state["versions"]) - 1:
+            rejection_reason = state["editor_feedback"] 
+        elif len(version) > 500:  # Check if rejected due to character count
+            rejection_reason = f"Exceeded character limit ({len(version)} characters)."
+        else:
+            rejection_reason = state["editor_history"][i - 1]
+        version_history_str += f"## Version {i}:\n{version}\n**Reason for Rejection:** {rejection_reason}\n\n"
 
     prompt = f"""
     You are a professional writer creating a text-only status update for threads.net. Your task is to create or edit based on the following information, ensuring there are no subheadings:
@@ -158,12 +171,13 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     Researcher's analysis: {researcher_analysis}
     Editor's feedback: {editor_feedback} 
     Draft Analysis: {draft_analysis}
-    Editor Feedback History:
-    {state['editor_history']}
+    Previous Versions and Rejection Reasons:
+    {version_history_str}
 
     Instructions:
     1. If the researcher has provided analysis, incorporate relevant insights into your draft.
     2. If the editor has provided feedback, carefully consider their suggestions and make appropriate revisions.
+    3. Carefully review the previous versions and the reasons they were rejected. Avoid repeating the same mistakes.
 
     Guidelines for the Perfect Status Update Structure:
     1. Hook (10% of content, aim for 5-10 words for this section because we are trying to aim to having the total character count for the status update within 500 characters): Capture attention with a compelling fact, statistic, or provocative question.
@@ -175,35 +189,53 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     Additional Guidelines:
     - Ensure the update is within 500 characters.
     - Only produce text content. No images or non-text elements.
-    - Do NOT use hashtags, links, or URLs.
+    - Never use hashtags.
+    - Do NOT use links or URLs.
     - Do NOT mention or imply additional information beyond what's in the status update.
     - Be opinionated and take a clear stance on the topic.
     - Focus on using abbreviations, compared to long technical jargon.
     - Do not write a title or heading.
-    - Write in 1 paragraph only.
+    - Write in 1 paragraph only. This means NO new lines, NO multiple paragraphs, just a single block of text.
     - Do not include any subheadings.
 
-    Please provide your text-only, opinionated status update following this structure, incorporating insights from the researcher, addressing editor feedback, and ensuring factual accuracy:
+    To ensure conciseness, consider these techniques:
+    - **Use strong verbs and active voice.**
+    - **Eliminate unnecessary words and phrases.** 
+    - **Replace long phrases with shorter equivalents.**
+    - **Prioritize the most impactful information.**
+    - **Focus on the core message and key details.**
+
+    Please provide your text-only, opinionated status update following this structure, incorporating insights from the researcher, addressing editor feedback, ensuring factual accuracy, and using the following format:
+
+    RESPONSE_START
+    [Write your status update here]
+    RESPONSE_END
+    <-stop-> 
     """
 
     completion = client.chat.completions.create(
         model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
+        stop=["<-stop->"]  # Set the stop string
     )
     new_draft = completion.choices[0].message.content
+
+    # Extract the status update from the response
+    new_draft = new_draft.split("RESPONSE_START")[1].split("RESPONSE_END")[0].strip()
+
     char_count = len(new_draft)
     print(f"Writer's Draft: {new_draft}")
 
     # Character count check moved here:
     if char_count <= 500:
         state["versions"].append(new_draft)
-        print("The Writer has finished and is sending the draft to the Editor.\n") # Changed from Fact Checker to Editor
-        return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_editor"} # Changed status
+        print("The Writer has finished and is sending the draft to the Editor.\n")
+        return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_editor"}
     else:
-        print("The Writer is making further revisions to meet the character limit.\n")
-        # Add more specific instructions for shortening the draft:
-        state["editor_feedback"] += "\nPlease shorten the draft to be within 500 characters. Focus on the most critical information and remove any unnecessary details."
+        excess_chars = char_count - 500
+        print(f"The Writer is making further revisions to meet the character limit. The draft is {excess_chars} characters too long.\n")
+        state["editor_feedback"] += f"\nPlease shorten the draft to be within 500 characters. It is currently {excess_chars} characters too long. Focus on the most critical information and remove any unnecessary details."
         return {"status": "editing", "current_draft": new_draft}
 
 def editor(state: StatusUpdateState) -> StatusUpdateState:
@@ -239,6 +271,7 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
     * Deliver your feedback in a professional and respectful tone.
     * Clearly state the score you assigned to the draft.
     * Do not suggest adding hashtags. 
+    * **Never propose a potential version of the status update. Your role is strictly to analyze and provide feedback, not to write or suggest revisions.**
 
     Example:
     Score: 7
@@ -274,14 +307,22 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
 def extract_score(feedback: str) -> int:
     """Extracts the score from the editor's feedback."""
 
-    # Use a regex pattern to find "Score:" followed by a number
-    match = re.search(r"Score:\s*(\d+)", feedback, re.IGNORECASE)
-    
-    if match:
-        return int(match.group(1))  # Extract the number from the matched group
-    else:
-        print("Warning: No score found in editor feedback. Assuming needs revision.")
-        return 0  # Assume needs revision if no score is found
+    # Try different patterns to find the score
+    patterns = [
+        r"Score:\s*(\d+)",  # Original pattern
+        r"**Score:**\s*(\d+)",  # Pattern with bold formatting
+        r"Score\s*:\s*(\d+)",  # Pattern with different spacing
+        # Add more patterns as needed based on observed LLM responses
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, feedback, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+
+    # If no score is found, return 0 and print a warning
+    print("Warning: No score found in editor feedback. Assuming needs revision.")
+    return 0
 
 def should_continue(state: StatusUpdateState) -> str:
     print(f"Deciding next step. Current status: {state['status']}")
