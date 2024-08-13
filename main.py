@@ -191,6 +191,13 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     - Write in 1 paragraph only. This means NO new lines, NO multiple paragraphs, just a single block of text.
     - Do not include any subheadings.
 
+    To ensure conciseness, consider these techniques:
+    - **Use strong verbs and active voice.**
+    - **Eliminate unnecessary words and phrases.** 
+    - **Replace long phrases with shorter equivalents.**
+    - **Prioritize the most impactful information.**
+    - **Focus on the core message and key details.**
+
     Please provide your text-only, opinionated status update following these instructions, incorporating insights from the researcher, addressing editor feedback, and ensuring factual accuracy:
     """
 
