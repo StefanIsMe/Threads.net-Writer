@@ -77,7 +77,7 @@ You can adjust the behavior of the workflow by modifying the parameters in the `
 ## Feature Roadmap
 
 * **Fact Checker Node:** Add a fact-checking node that compares the writer's draft with the initial user-provided draft to ensure factual accuracy.
-* **Improved Personal Content Generation:** Investigate and address the issues related to generating high-quality personal status updates, potentially by analyzing the specific challenges and exploring different prompting strategies or LLM fine-tuning.
+* **Improved Personal Content Generation:** Investigate and address the issues related to generating high-quality personal status updates, potentially by analyzing the specific challenges and exploring different prompting strategies.
 
 ## Contributing
 
