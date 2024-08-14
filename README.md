@@ -73,6 +73,7 @@ You can adjust the behavior of the workflow by modifying the parameters in the `
 
 * **Complex Initial Drafts:** The writer may struggle with complex initial status updates and could go into indefinite loops if it cannot make the initial draft concise enough to write content within the character limit.
 * **Personal Content:** The quality of generated status updates for personal content tends to be poor, and the workflow may take a long time to complete.
+* **Incorrect Timer:** The timer that tracks the total workflow time from initial draft submission to editor approval is currently inaccurate and does not reflect the actual time taken.
 
 ## Feature Roadmap
 
