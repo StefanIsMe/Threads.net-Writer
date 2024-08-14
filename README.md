@@ -2,6 +2,20 @@
 
 This project provides a workflow for generating high-quality text-only status updates for Threads.net, leveraging the power of a local large language model (LLM). It utilizes a state graph, powered by **LangGraph**, to manage the process, involving a user, researcher, draft analyzer, writer, and editor.  The script will prompt you for your initial status update draft.
 
+## Table of Contents
+
+* [Features](#features)
+* [Requirements](#requirements)
+* [Installation](#installation)
+* [Usage](#usage)
+* [Workflow](#workflow)
+* [How LangGraph is Used](#how-langgraph-is-used)
+* [Configuration](#configuration)
+* [Known Issues](#known-issues)
+* [Feature Roadmap](#feature-roadmap)
+* [Contributing](#contributing)
+* [License](#license)
+
 ## Features
 
 * **Iterative Refinement:** The draft undergoes multiple rounds of analysis, writing, and editing to ensure quality.
@@ -54,6 +68,16 @@ This project leverages **LangGraph** to define and manage the workflow as a stat
 ## Configuration
 
 You can adjust the behavior of the workflow by modifying the parameters in the `main.py` file, such as the maximum number of iterations or the temperature for the LLM.
+
+## Known Issues
+
+* **Complex Initial Drafts:** The writer may struggle with complex initial status updates and could go into indefinite loops if it cannot make the initial draft concise enough to write content within the character limit.
+* **Personal Content:** The quality of generated status updates for personal content tends to be poor, and the workflow may take a long time to complete.
+
+## Feature Roadmap
+
+* **Fact Checker Node:** Add a fact-checking node that compares the writer's draft with the initial user-provided draft to ensure factual accuracy.
+* **Improved Personal Content Generation:** Investigate and address the issues related to generating high-quality personal status updates, potentially by analyzing the specific challenges and exploring different prompting strategies or LLM fine-tuning.
 
 ## Contributing
 
