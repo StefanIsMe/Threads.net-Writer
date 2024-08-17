@@ -1,13 +1,46 @@
 from typing import Annotated, TypedDict, List
 import operator
 import time
+from datetime import datetime # Import the datetime library
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from openai import OpenAI
 import re
 
-# Set up the OpenAI client to use the local LLM
+# Set up the OpenAI client and define the LLM model globally
 client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+LLM_MODEL = "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"  # Global variable for the LLM model
+
+# User Persona (Global Variable)
+USER_PERSONA = {
+    "name": "John Doe",
+    "age_range": 30,
+    "birthdate": "01/01/1993",
+    "gender": "Male",
+    "birth_location": "Anytown, USA",
+    "residence": "New York City, USA",
+    "occupation": "Software Engineer",
+    "marital_status": "Single",
+    "political_affiliations": "Moderate",
+    "education": "Bachelor's degree in Computer Science",
+    "threads_usage_reason": "Networking, tech news, sharing opinions",
+    "topics_of_interest": {
+        "tech": ["Software development", "web3", "cybersecurity", "new gadgets"],
+        "news_business": ["Technology news", "business trends", "startups"],
+        "politics": ["US politics", "international relations"],
+        "other": ["Travel", "music", "cooking"]
+    },
+    "writing_style": "Casual and informative, occasionally uses humor, enjoys debates.",
+    "typical_audience": "Tech professionals, software developers, entrepreneurs",
+    "content_preferences": {
+        "posts_about": ["New tech gadgets", "coding tips", "software trends", "travel experiences"],
+        "strong_opinions": ["Open-source software", "the importance of data privacy"],
+        "avoids": ["Controversial political topics", "celebrity gossip", "personal drama"]
+    },
+    "threads_goals": "Stay connected with the tech community, share knowledge, learn from others",
+    "favorite_accounts": "Tech influencers, software companies, news outlets",
+    "standout_qualities": "Technical knowledge, insightful opinions, engaging writing style"
+}
 
 class StatusUpdateState(TypedDict):
     messages: Annotated[List[HumanMessage | AIMessage | SystemMessage], operator.add]
@@ -15,12 +48,10 @@ class StatusUpdateState(TypedDict):
     character_count: int
     status: str
     versions: List[str]
-    researcher_analysis: str
     editor_feedback: str
     iteration_count: int
-    draft_analysis: str  # Added for the draft_analyzer
-    editor_history: List[str]  # To store editor's feedback history
-    start_time: float  # Added for duration tracking
+    editor_history: List[str]
+    start_time: float
 
 def increment_and_check_iterations(state: StatusUpdateState) -> StatusUpdateState:
     state["iteration_count"] += 1
@@ -47,9 +78,12 @@ def user(state: StatusUpdateState) -> StatusUpdateState:
 
     if state["status"] == "initial":
         initial_draft = get_multiline_input("Please enter your initial draft for the status update:")
-        print("User has submitted the initial draft. Sending it to the draft analyzer.\n") 
-        # Record the start time when the initial draft is submitted
-        state["start_time"] = time.time()
+        print("User has submitted the initial draft. Sending it to the Writer.\n") 
+
+        # Record the start time using datetime
+        state["start_time"] = datetime.now() 
+        print(f"Start time recorded: {state['start_time'].strftime('%H:%M:%S')}") 
+
         return {"draft": initial_draft, "status": "draft_submitted"}
 
     elif state["status"] == "user_approval":
@@ -72,83 +106,10 @@ def user(state: StatusUpdateState) -> StatusUpdateState:
 
     return {}
 
-
-def researcher(state: StatusUpdateState) -> StatusUpdateState:
-    state.update(increment_and_check_iterations(state))
-    print("The Researcher is analyzing the draft...\n")
-    prompt = f"""
-    You are a researcher tasked with analyzing the following draft of a threads.net status update:
-
-    Draft: {state['draft']}
-
-    Instructions:
-    * Your role is to provide insights and information about the potential target audience, relevant topics, and potential opinion groups that might be interested in this status update.
-    * **Do NOT provide any guidance on writing style, structure, or specific wording.** Your focus is purely on research and analysis. 
-
-    Provide information on the following:
-    * **Target Audience:** Who are the most likely audiences for this status update on Threads.net? Consider demographics, interests, and online behavior. Be specific and provide examples.
-    * **Relevant Topics:** What broader topics or themes does this status update relate to? Identify any trending topics or discussions on Threads.net that might be relevant.
-    * **Opinion Groups:**  Are there any specific groups or communities on Threads.net that might have strong opinions or perspectives on the subject of this status update? 
-    * **Key Insights:**  Based on your research, are there any additional insights or data points that could be valuable for the writer to consider?
-
-    Threads.net Profile:
-    Threads is a text-based social networking service developed by Meta Platforms (formerly Facebook). Launched in July 2023, it is designed for sharing text updates and joining public conversations. Users can post up to 500 characters of text and include links, photos, and videos up to 5 minutes in length. It is closely linked to Instagram, allowing users to easily share their Threads posts to their Instagram stories. Threads is also considered a competitor to Twitter.com.
-
-    Focus solely on providing research-based information and avoid making any writing suggestions. 
-    """
-    completion = client.chat.completions.create(
-        model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    analysis = completion.choices[0].message.content
-    print(f"Researcher Analysis: {analysis}")
-    print("The Researcher has finished the analysis. Sending it to the Writer.\n")
-    return {"researcher_analysis": analysis, "status": "research_complete"}
-
-def draft_analyzer(state: StatusUpdateState) -> StatusUpdateState:
-    state.update(increment_and_check_iterations(state))
-    print("The Draft Analyzer is reviewing the status update...\n")
-    prompt = f"""
-    Analyze the following initial draft of a status update for threads.net and provide a detailed breakdown, ensuring there are no subheadings:
-
-    Draft: {state['draft']}
-
-    Instructions:
-    * Break down the draft into its key components (Hook, Introduction, Main Content, Value Proposition, Call to Action).
-    * Analyze each component's effectiveness and adherence to the guidelines below.
-    * Provide specific suggestions for improvement for each component.
-    * **Never propose a potential version of the status update. Your role is strictly to analyze and provide feedback, not to write or suggest revisions.**
-
-    Guidelines for a Perfect Status Update:
-    * Conciseness: The update should be within 500 characters.
-    * Text-Only: No images or non-text elements.
-    * No Subheadings: The update should be written in a single paragraph without subheadings. 
-    * Clarity:  The message should be clear, concise, and easy to understand.
-    * Engagement:  The update should be interesting and engaging for the target audience.
-    * Opinionated: It should take a clear and opinionated stance on the topic.
-    * No External References: Do not include hashtags, links, or URLs.
-    - Conciseness and Jargon:  Avoid unnecessary words and technical jargon. 
-    - Single Paragraph: Ensure the update is written in a single paragraph, without headings. 
-
-    Focus on providing constructive feedback and suggestions for improvement. Your analysis should help the writer understand the strengths and weaknesses of their initial draft.
-    """
-    completion = client.chat.completions.create(
-        model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-    analysis = completion.choices[0].message.content
-    print(f"Draft Analysis: {analysis}")
-    print("The Draft Analyzer has finished reviewing. Sending insights to the Writer.\n")
-    return {"draft_analysis": analysis, "status": "draft_analyzed"}
-
 def writer(state: StatusUpdateState) -> StatusUpdateState:
     state.update(increment_and_check_iterations(state))
-    print("The Writer is now working on the status update, incorporating feedback...\n")
-    researcher_analysis = state.get('researcher_analysis', 'No research analysis available')
+    print("The Writer is now assembling the status update...\n")
     editor_feedback = state.get('editor_feedback', 'No editor feedback yet') 
-    draft_analysis = state.get('draft_analysis', 'No draft analysis available.')
 
     # Build version history string, including character count rejections
     version_history_str = ""
@@ -165,24 +126,72 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
         version_history_str += f"## Version {i}:\n{version}\n**Reason for Rejection:** {rejection_reason}\n\n"
 
     prompt = f"""
-    You are a professional writer creating a text-only status update for threads.net. Your task is to create or edit based on the following information, ensuring there are no subheadings:
+    You are a professional writer creating a text-only status update for Threads.net, specifically for **{USER_PERSONA['name']}**, whose persona is described below:
+    Important: Your primary goal is to refine and improve the initial draft provided by the user, ensuring that the final status update remains closely aligned with the original topic and key points. Do not introduce unrelated information or deviate significantly from the original content. 
 
-    Original draft: {state['draft']}
-    Researcher's analysis: {researcher_analysis}
+    User Persona:
+    {USER_PERSONA}
+
+    Original Draft: {state['draft']}
+    **This is the initial draft of the Threads.net status update provided by the user. Your goal is to improve and refine this draft based on the guidelines, feedback, and insights provided, using your expertise as a professional writer to create a high-quality final version.** 
+
     Editor's feedback: {editor_feedback} 
-    Draft Analysis: {draft_analysis}
+    **The Editor has reviewed the most recent version of the status update and provided feedback on its strengths and weaknesses, along with a score. Carefully consider the Editor's suggestions and address any issues raised to improve the quality of your current draft.**
+
     Previous Versions and Rejection Reasons:
     {version_history_str}
+    **This section contains previous versions of the status update that you attempted to write, along with the reasons why each version was rejected by the Editor or due to exceeding the character limit. Carefully analyze each version and its rejection reason to understand the mistakes that were made and avoid repeating them in your current draft.**
 
     Instructions:
-    1. If the researcher has provided analysis, incorporate relevant insights into your draft.
-    2. If the editor has provided feedback, carefully consider their suggestions and make appropriate revisions.
-    3. Carefully review the previous versions and the reasons they were rejected. Avoid repeating the same mistakes.
+    1. If the editor has provided feedback, carefully consider their suggestions and make appropriate revisions.
+    2. Carefully review the previous versions and the reasons they were rejected. Avoid repeating the same mistakes.
+    3. **Content Adherence Check: Before submitting your draft, carefully compare it to the initial draft. Ensure that your draft remains closely aligned with the original topic and key points, and that you have not introduced unrelated information or deviated significantly from the original content.**
+
+    Guidelines for the Perfect Status Update Structure (Tailored for {USER_PERSONA['name']}):
+    1. Hook (10% of content, aim for 5-10 words):  
+        * Purpose: Capture the reader's attention right away.
+        * Consider {USER_PERSONA['name']}'s {USER_PERSONA['writing_style']} and preference for posts about {', '.join(USER_PERSONA['content_preferences']['posts_about'])}.
+        * Techniques:
+            - Present a startling or unexpected statistic related to the topic.
+            - Make a bold statement or assertion to stimulate interest.
+            - Use vivid imagery or a metaphor to grab attention.
+
+    2. Introduction (15% of content, aim for 8-15 words):
+        * Purpose: Briefly set the stage for the main topic.
+        * Keep {USER_PERSONA['name']}'s {USER_PERSONA['writing_style']} in mind.
+        * Techniques:
+            - Concisely summarize the core idea or event you'll be discussing.
+            - Offer some brief background information to provide context for the reader.
+
+    3. Main Content (50% of content, aim for 25-40 words):
+        * Purpose: Dive deeper into the topic, providing details, insights, and analysis.
+        * Remember {USER_PERSONA['name']}'s interest in {', '.join(USER_PERSONA['topics_of_interest']['tech'])} and {USER_PERSONA['name']}'s {USER_PERSONA['writing_style']}.
+        * Techniques:
+            - Expand on the key point from the introduction, offering supporting evidence or data.
+            - Present a unique angle or viewpoint on the topic, showcasing your expertise.
+            - Use vivid language and dynamic sentence structure to keep the reader engaged.
+
+    4. Value Proposition (20% of content, aim for 10-20 words):
+        * Purpose: Demonstrate why this topic matters to the reader.
+        * Consider {USER_PERSONA['name']}'s audience of {USER_PERSONA['typical_audience']}.
+        * Techniques:
+            - Explain the potential benefits or drawbacks of the information presented.
+            - Highlight the real-world implications or consequences of the topic.
+            - Connect the topic to the reader's interests or concerns.
+
+    5. Call to Action (5% of content, aim for 8 words or less):
+        * Purpose: Encourage interaction and discussion around the topic.
+        * Use a {USER_PERSONA['writing_style']} tone.
+        * Techniques:
+            - **Craft a call to action that directly relates to the status update's main topic or argument, making it clear why the reader should engage.**
+            - **Use a concise and engaging phrase that prompts a response from the audience. You can use a question or a statement that encourages interaction.**
+
+    IMPORTANT RULE: The status update can contain a maximum of two questions. Status updates with more than two questions will be automatically rejected.
 
     Additional Guidelines:
-    - Ensure the update is within 500 characters.
+    - **Ensure the update is between 450 and 500 characters.**
     - Only produce text content. No images or non-text elements.
-    - Never use hashtags.
+    - **Hashtags are strictly forbidden in Threads.net status updates. Do NOT include any hashtags in your draft.** 
     - Do NOT use links, or URLs.
     - Do NOT mention or imply additional information beyond what's in the status update.
     - Be opinionated and take a clear stance on the topic.
@@ -190,62 +199,167 @@ def writer(state: StatusUpdateState) -> StatusUpdateState:
     - Do not write a title or heading.
     - Write in 1 paragraph only. This means NO new lines, NO multiple paragraphs, just a single block of text.
     - Do not include any subheadings.
+    - Avoid using language that sounds promotional, salesy, or like a PR piece.  
+    - Focus on being informative, engaging, and providing value to the reader.
+    - Use concise language. Avoid unnecessarily long names, phrases, or technical terms. 
+    - If a shorter word or phrase conveys the same meaning, use it.
+    - Prioritize clarity and impact over wordiness.
+    * **Grammar and Mechanics:** Is the draft completely free of grammatical errors, spelling mistakes, and punctuation issues? Ensure that sentences are well-structured, words are spelled correctly, and punctuation is used appropriately.
+        - **If you find any grammatical errors, spelling mistakes, or punctuation issues, automatically give the draft a score of 0.** 
 
     To ensure conciseness, consider these techniques:
-    - **Use strong verbs and active voice.**
-    - **Eliminate unnecessary words and phrases.** 
-    - **Replace long phrases with shorter equivalents.**
-    - **Prioritize the most impactful information.**
-    - **Focus on the core message and key details.**
+    - Use strong verbs and active voice.
+    - Eliminate unnecessary words and phrases. 
+    - Replace long phrases with shorter equivalents.
+    - Prioritize the most impactful information.
+    - Focus on the core message and key details.
 
-    Please provide your text-only, opinionated status update following these instructions, incorporating insights from the researcher, addressing editor feedback, and ensuring factual accuracy:
+    Please provide your text-only, opinionated status update following these instructions, incorporating insights from the researcher, addressing editor feedback, and ensuring factual accuracy. Remember to create a status update that is tailored to {USER_PERSONA['name']}'s persona and preferences. 
+
+    Enclose your status update within triple backticks (```). For example:
+    ```This is an example of a status update enclosed in triple backticks.```
     """
 
     completion = client.chat.completions.create(
-        model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+        model=LLM_MODEL, # Using the global LLM_MODEL
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=1,
+        seed=42,
+        max_tokens=185
     )
     new_draft = completion.choices[0].message.content
-    char_count = len(new_draft)
+
+   # Extract text within triple backticks (if present)
+    match = re.search(r'```(.*?)```', new_draft, re.DOTALL)
+    if match:
+        new_draft = match.group(1).strip()
+    else:
+        print("Warning: No triple backticks found in the LLM's response. Asking the LLM to regenerate the draft.")
+        
+        # Ask the LLM to regenerate the draft with triple backticks
+        regeneration_prompt = f"""
+        Your previous response did not include the generated status update within triple backticks. 
+        Please regenerate the status update and ensure you enclose it within triple backticks (```). 
+
+        Here is the original prompt:
+        {prompt} 
+        """
+        completion = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": regeneration_prompt}],
+            temperature=0.7,
+        )
+        new_draft = completion.choices[0].message.content
+
+        # Try extracting the draft again (using triple backticks)
+        match = re.search(r'```(.*?)```', new_draft, re.DOTALL)
+        if match:
+            new_draft = match.group(1).strip()
+        else:
+            print("Error: The LLM failed to generate the draft within triple backticks again. Using the full response.")
+            # Use the full response as a fallback
+            new_draft = completion.choices[0].message.content
+
+# Conditional check for question marks (with error handling)
+    try:
+        question_mark_count = new_draft.count('?')
+        if question_mark_count > 2:  # Changed limit to 2
+            print(f"The Writer is making further revisions. The draft contains {question_mark_count} question marks, exceeding the limit of 2.\n")
+            
+            # Extract and highlight questions
+            sentences = re.split(r'[.?!]', new_draft)
+            question_sentences = [sentence.strip() for sentence in sentences if "?" in sentence]
+            highlighted_questions = "\n".join([f"- **{sentence}**" for sentence in question_sentences])
+            
+            excess_questions = question_mark_count - 2  # Adjusted excess calculation
+            state["editor_feedback"] += f"""
+            The draft contains too many question marks ({question_mark_count}). You have exceeded the limit of 2 questions by {excess_questions} question(s).
+            
+            The following sentences contain questions:
+            
+            {highlighted_questions}
+            
+            Remember, a Threads status update should ideally have a maximum of two questions. 
+            To help you revise: Consider removing or combining these questions, or rephrasing some as statements.
+            """
+            return {"status": "editing", "current_draft": new_draft}
+
+    except AttributeError as e:
+        print(f"Error: An AttributeError occurred during the question mark check: {e}")
+        print("This might indicate an issue with the generated draft. Returning to editing.")
+        state["editor_feedback"] += "\nAn error occurred during processing. Please try generating the draft again."
+        return {"status": "editing", "current_draft": new_draft}
+
+    char_count = len(new_draft) 
     print(f"Writer's Draft: {new_draft}")
 
-    # Character count check moved here:
-    if char_count <= 500:
+    # Character count check 
+    if 450 <= char_count <= 500: 
         state["versions"].append(new_draft)
         print("The Writer has finished and is sending the draft to the Editor.\n")
         return {"draft": new_draft, "current_draft": new_draft, "character_count": char_count, "status": "ready_for_editor"}
+
     else:
-        excess_chars = char_count - 500
-        print(f"The Writer is making further revisions to meet the character limit. The draft is {excess_chars} characters too long.\n")
-        state["editor_feedback"] += f"\nPlease shorten the draft to be within 500 characters. It is currently {excess_chars} characters too long. Focus on the most critical information and remove any unnecessary details."
+        if char_count < 450:
+            missing_chars = 450 - char_count
+            print(f"The Writer is making further revisions to meet the character limit. The draft is {missing_chars} characters too short.\n")
+            state["editor_feedback"] += f"""
+            The draft is {missing_chars} characters too short. The current character count is {char_count}. Aim for a length between 450 and 500 characters.
+
+            To help you revise: Consider elaborating on these areas:
+            - Provide more context or background information about the topic.
+            - Add details or examples to support your main points.
+            - Expand the call to action to make it more engaging. 
+            """
+        else: # char_count > 500
+            excess_chars = char_count - 500
+            print(f"The Writer is making further revisions to meet the character limit. The draft is {excess_chars} characters too long.\n")
+            state["editor_feedback"] += f"""
+            The draft is {excess_chars} characters too long. The current character count is {char_count}. Aim for a length between 450 and 500 characters.
+
+            To help you revise: Consider condensing these areas:
+            - Shorten phrases or use abbreviations where appropriate.
+            - Remove unnecessary words or redundant information. 
+            - Focus on the most critical points and streamline the message. 
+            """
+
         return {"status": "editing", "current_draft": new_draft}
 
 def editor(state: StatusUpdateState) -> StatusUpdateState:
     state.update(increment_and_check_iterations(state))
     print("The Editor is reviewing the draft...\n")
     prompt = f"""
-    You are a professional editor reviewing a text-only status update for threads.net. 
+    You are a professional editor reviewing a text-only status update for Threads.net, specifically for **{USER_PERSONA['name']}**, whose persona is described below: 
+
+    User Persona:
+    {USER_PERSONA}
+
+
     Your goal is to collaboratively work with the writer to produce a high-quality status update. Provide constructive feedback to improve the draft while ensuring it adheres to the following guidelines:
 
     Draft: {state['draft']}
 
-    Review the draft based on the following criteria and provide a score from 0 to 10, where 0 is the lowest and 10 is the highest. 
-    A score above 5 indicates approval. Provide constructive feedback to help the writer improve the draft, 
-    regardless of the score. 
+    Review the draft based on the following criteria and provide a score from 0 to 10, where 0 is the *lowest possible score* and 10 is the *highest possible score*. 
+
+    A score of 6 or lower indicates significant issues that need to be addressed. 
+    A score of 7-8 indicates a good draft with some areas for improvement.
+    A score of 9-10 indicates an excellent draft that meets all the criteria. 
 
     Review Criteria:
-    * **Hook:** Does it capture attention with a compelling fact, statistic, or provocative question?
-    * **Introduction:** Does it briefly summarize the key point of the news?
-    * **Main Content:** Does it expand on the introduction with details, insights, or analysis?
-    * **Value Proposition:** Does it highlight the significance or impact of the news?
-    * **Call to Action:** Does it end with a brief question to encourage engagement?
+    * **Hook:** Does it capture attention with a compelling fact, statistic, or provocative question? Is it relevant to {USER_PERSONA['name']}'s interests?
+    * **Introduction:** Does it briefly summarize the key point of the news? Is it in line with {USER_PERSONA['name']}'s preferred writing style?
+    * **Main Content:** Does it expand on the introduction with details, insights, or analysis? Does it reflect {USER_PERSONA['name']}'s knowledge and opinions on the topic?
+    * **Value Proposition:** Does it highlight the significance or impact of the news? Does it resonate with {USER_PERSONA['name']}'s target audience?
+    * **Call to Action:** Does it effectively encourage discussion and engagement? Does it avoid sounding promotional or salesy? Does it align with {USER_PERSONA['name']}'s casual and engaging writing style?
+    * **Tone:** Is the tone neutral, informative, and engaging? Does it avoid being overly promotional, salesy, or PR-like? Is it consistent with {USER_PERSONA['name']}'s typically {USER_PERSONA['writing_style']} style?
+    * **Grammar and Mechanics:** Is the draft completely free of grammatical errors, spelling mistakes, and punctuation issues? Ensure that sentences are well-structured, words are spelled correctly, and punctuation is used appropriately. 
+    * **Questions:**  Does the draft contain no more than two questions? 
 
     Additional Guidelines:
     - Content Type: Is it text-only, without images or extraneous elements?
     - No External References: Does it avoid using hashtags, links, or URLs?
     - Conciseness: Is the language clear and concise, avoiding jargon?
-    - Opinion: Does it express a clear and opinionated stance?
+    - Opinion: Does it express a clear and opinionated stance, as is characteristic of {USER_PERSONA['name']}'s writing?
     - Structure: Is it written in a single paragraph without subheadings or titles? 
 
     Feedback Instructions:
@@ -258,12 +372,14 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
 
     Example:
     Score: 7
-    Feedback: The draft is well-written and engaging, but the hook could be stronger. Consider starting with a more surprising statistic or a thought-provoking question. 
+    Feedback: The draft is well-written and engaging, but the hook could be stronger. Consider starting with a more surprising statistic or a thought-provoking question that aligns with {USER_PERSONA['name']}'s interests in {', '.join(USER_PERSONA['topics_of_interest']['tech'])}.
+
+    Ensure the status update is tailored to {USER_PERSONA['name']}'s persona, preferences, and target audience. Consider their interests in {', '.join(USER_PERSONA['topics_of_interest']['tech'])} and their {USER_PERSONA['writing_style']}.
     """
     completion = client.chat.completions.create(
-        model="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+        model=LLM_MODEL, # Using the global LLM_MODEL
         messages=[{"role": "user", "content": prompt}],
-        temperature=1.5,
+        temperature=0.7
     )
     feedback = completion.choices[0].message.content
     print(f"Editor Feedback: {feedback}")
@@ -275,11 +391,21 @@ def editor(state: StatusUpdateState) -> StatusUpdateState:
     # Append feedback to editor_history
     state["editor_history"].append(feedback)
 
-    if score > 5:
-        # Record the time when the editor approves
-        editor_approval_time = time.time()
-        duration = editor_approval_time - state["start_time"]
-        print(f"Time from initial draft to editor approval: {int(duration // 60)} minutes and {duration % 60:.2f} seconds")
+    if score > 7:
+        end_time = datetime.now()
+        print(f"Editor approval time: {end_time.strftime('%H:%M:%S')}")
+
+        # Convert start_time to datetime object if it's a float
+        if isinstance(state["start_time"], float):
+            state["start_time"] = datetime.fromtimestamp(state["start_time"])
+
+        # Calculate duration using datetime
+        duration = end_time - state["start_time"]
+        duration_minutes = int(duration.total_seconds() // 60)
+        remaining_seconds = duration.total_seconds() % 60
+
+        print(f"Time from initial draft to editor approval: {duration_minutes} minutes and {remaining_seconds:.2f} seconds")
+
         print("The Editor has approved the draft. Sending it to the User for final approval.\n")
         return {"status": "user_approval", "editor_feedback": feedback}
     else:
@@ -292,9 +418,14 @@ def extract_score(feedback: str) -> int:
 
     # Try different patterns to find the score
     patterns = [
-        r"Score:\s*(\d+)",  # Original pattern
-        r"**Score:**\s*(\d+)",  # Pattern with bold formatting
-        r"Score\s*:\s*(\d+)",  # Pattern with different spacing
+        r"Score:\s*(\d+)",              # "Score: 8"
+        r"Score\s*is\s*(\d+)",          # "Score is 8"
+        r"Score\s*-\s*(\d+)",          # "Score - 8"
+        r"\*\*Score:\*\*\s*(\d+)",     # "**Score:** 8"
+        r"Score\s*:\s*\*\*(\d+)\*\*",  # "Score: **8**"
+        r"Rated\s*(\d+)\s*\/\s*10",    # "Rated 8 / 10"
+        r"(\d+)\s*out\s*of\s*10",     # "8 out of 10"
+        r"\*\*Score:\s*(\d+)\/10\*\*",  # "**Score: 9/10**"
         # Add more patterns as needed based on observed LLM responses
     ]
 
@@ -314,14 +445,10 @@ def should_continue(state: StatusUpdateState) -> str:
     if state["status"] == "approved":
         return END
     elif state["status"] == "draft_submitted":
-        return "draft_analyzer"  
-    elif state["status"] == "draft_analyzed":
-        return "researcher"
-    elif state["status"] == "research_complete": 
-        return "writer"
+        return "writer" # Updated flow
     elif state["status"] == "needs_revision":
-        return "writer"  # Writer should receive user feedback as well
-    elif state["status"] == "ready_for_editor": # Changed from ready_for_fact_check
+        return "writer"  
+    elif state["status"] == "ready_for_editor":
         return "editor"
     elif state["status"] == "user_approval":
         return "user"
@@ -334,20 +461,15 @@ def should_continue(state: StatusUpdateState) -> str:
 # Create the graph
 workflow = StateGraph(StatusUpdateState)
 
-# Add nodes (Removed fact_checker node)
+# Add nodes
 workflow.add_node("user", user)
-workflow.add_node("researcher", researcher)
-workflow.add_node("draft_analyzer", draft_analyzer)
 workflow.add_node("writer", writer)
 workflow.add_node("editor", editor)
 
 # Set up the flow
 workflow.set_entry_point("user")
 workflow.add_conditional_edges("user", should_continue)
-workflow.add_conditional_edges("researcher", should_continue)
-workflow.add_conditional_edges("draft_analyzer", should_continue)
 workflow.add_conditional_edges("writer", should_continue)
-# Removed fact_checker edge
 workflow.add_conditional_edges("editor", should_continue)
 
 # Compile the graph
@@ -366,12 +488,10 @@ def main():
         "character_count": len(initial_draft),
         "status": "initial",
         "versions": [initial_draft],
-        "researcher_analysis": "",
         "editor_feedback": "",
-        "iteration_count": 0,
-        "draft_analysis": "",  
+        "iteration_count": 0,  
         "editor_history": [],
-        "start_time": 0.0  
+        "start_time": 0.0
     }
 
     # Run the graph with increased recursion limit
@@ -387,12 +507,8 @@ def main():
     print("\nVersion History:")
     for i, version in enumerate(result['versions'], 1):
         print(f"Version {i}: {version[:50]}...")  # Print first 50 characters of each version
-    print("\nResearcher Analysis:")
-    print(result.get('researcher_analysis', 'No researcher analysis available'))
     print("\nFinal Editor Feedback:")
     print(result.get('editor_feedback', 'No editor feedback available'))
-    print("\nDraft Analysis:")  # Added for draft_analyzer
-    print(result.get('draft_analysis', 'No draft analysis available'))
     print("\nMessages:")
     for message in result['messages']:
         print(f"- {message.content}")
