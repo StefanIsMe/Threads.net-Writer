@@ -1,4 +1,4 @@
-# Threads.net Status Update Generator
+# Threads.net Status Update Assistant
 
 This project provides a workflow for generating high-quality, personalized text-only status updates for Threads.net, leveraging the power of a local large language model (LLM). It utilizes a state graph, powered by **LangGraph**, to manage the process, involving a user, writer, and editor. The script will prompt you for your initial status update draft and then refine it iteratively based on feedback and specific user persona information.
 
