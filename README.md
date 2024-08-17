@@ -11,7 +11,7 @@ This project provides a workflow for generating high-quality, personalized text-
 * [Workflow](#workflow)
 * [How LangGraph is Used](#how-langgraph-is-used)
 * [Configuration](#configuration)
-    * [New Features and Changes](#new-features-and-changes)
+* [New Features and Changes](#new-features-and-changes)
 * [Known Issues](#known-issues)
 * [Feature Roadmap](#feature-roadmap)
 * [Contributing](#contributing)
@@ -67,7 +67,7 @@ This project leverages **LangGraph** to define and manage the workflow as a stat
 
 You can adjust the behavior of the workflow by modifying the parameters in the `main.py` file, such as the maximum number of iterations or the temperature for the LLM. You can also modify the `USER_PERSONA` dictionary to tailor the generated content to a specific user.
 
-### New Features and Changes
+## New Features and Changes
 
 * **August 17, 2024 - Enhanced Personalization and Streamlined Workflow:**
     * Introduced a detailed `USER_PERSONA` dictionary for personalized content generation.
@@ -87,7 +87,6 @@ You can adjust the behavior of the workflow by modifying the parameters in the `
 * **Fact Checker Node:** Add a fact-checking node that compares the writer's draft with the initial user-provided draft to ensure factual accuracy.
 * **Improved Personal Content Generation:** Investigate and address the issues related to generating high-quality personal status updates, potentially by analyzing the specific challenges and exploring different prompting strategies or LLM fine-tuning.
 * **Reintroduce Researcher Node:** Reintroduce the `researcher` node to incorporate external research and insights into the status update generation process.
-
 
 ## Contributing
 
