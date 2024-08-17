@@ -2,18 +2,6 @@
 
 This project provides a workflow for generating high-quality, personalized text-only status updates for Threads.net, leveraging the power of a local large language model (LLM). It utilizes a state graph, powered by **LangGraph**, to manage the process, involving a user, writer, and editor. The script will prompt you for your initial status update draft and then refine it iteratively based on feedback and specific user persona information.
 
-**New Features and Changes (August 17, 2024):**
-
-* **Personalized Content Generation:** A detailed `USER_PERSONA` dictionary is now used to tailor the status update to a specific user's characteristics, interests, and writing style.
-* **Streamlined Workflow:** The workflow has been streamlined to focus on refining the user's initial draft directly. The `draft_analyzer` and `researcher` nodes have been temporarily removed for a more direct approach.
-* **Enhanced Prompts:** The prompts for the `writer` and `editor` nodes have been significantly enhanced to provide more context and guidance based on the `USER_PERSONA`.
-* **Stricter Content Guidelines:**
-    * Enforced a stricter character limit of 450-500 characters to comply with Threads.net's guidelines.
-    * Implemented a maximum limit of two questions per status update to maintain clarity and conciseness.
-* **Improved Error Handling:** Added error handling for cases where the LLM fails to enclose the generated text within triple backticks and to handle potential `AttributeError` during the question mark count check.
-* **Global LLM Model and Seed:** Defined the LLM model as a global variable (`LLM_MODEL`) for easier management and potential future updates. Introduced a `seed` parameter in the `writer` function to improve reproducibility and consistency in generated content.
-
-
 ## Table of Contents
 
 * [Features](#features)
@@ -23,11 +11,11 @@ This project provides a workflow for generating high-quality, personalized text-
 * [Workflow](#workflow)
 * [How LangGraph is Used](#how-langgraph-is-used)
 * [Configuration](#configuration)
+    * [New Features and Changes](#new-features-and-changes)
 * [Known Issues](#known-issues)
 * [Feature Roadmap](#feature-roadmap)
 * [Contributing](#contributing)
 * [License](#license)
-
 
 ## Features
 
@@ -78,6 +66,15 @@ This project leverages **LangGraph** to define and manage the workflow as a stat
 ## Configuration
 
 You can adjust the behavior of the workflow by modifying the parameters in the `main.py` file, such as the maximum number of iterations or the temperature for the LLM. You can also modify the `USER_PERSONA` dictionary to tailor the generated content to a specific user.
+
+### New Features and Changes
+
+* **August 17, 2024 - Enhanced Personalization and Streamlined Workflow:**
+    * Introduced a detailed `USER_PERSONA` dictionary for personalized content generation.
+    * Streamlined the workflow by removing the `draft_analyzer` and `researcher` nodes.
+    * Enhanced the prompts for the `writer` and `editor` nodes to provide more context and guidance.
+    * Enforced stricter character limits (450-500 characters) and a maximum of two questions per update.
+    * Improved error handling and added a seed parameter for reproducibility.
 
 ## Known Issues
 
