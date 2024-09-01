@@ -94,11 +94,12 @@ You can adjust the behavior of the workflow by modifying the parameters in the `
 ## Getting a Google Gemini API Key
 
 1. Go to [Google AI Studio](https://studio.ai.google.com/).
-2. If you don't have a project, create a new one.
-3. In your project, navigate to the "APIs & services" section.
-4. Enable the "Gemini API" if it's not already enabled.
-5. Go to the "Credentials" tab and create a new API key.
-6. Copy the generated API key.
+2. In the left navigation bar, click the "Get API key" button.
+3. On the API Keys page, click the "Create API Key" button.
+4. Select an existing Google Cloud project with read-write access, or go to Google Cloud to create a new project.
+5. Once you've selected a project, click the button to "Create API key in existing project".
+6. You will now see the API key you generated. Copy this API key and proceed to set it up as your system variable.
+7. You can close the window to go back to the API Keys page. You should notice that the Plan for this API key is marked as "Free of charge", which means you can access Gemini models API based on the limits detailed here: [https://ai.google.dev/pricing](https://ai.google.dev/pricing) 
 
 ## Setting the API Key as a System Variable
 
