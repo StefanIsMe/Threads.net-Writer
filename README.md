@@ -114,18 +114,6 @@ You need to set the API key as a system environment variable named `GEMINI_API_K
 5. Enter "GEMINI_API_KEY" as the variable name and your API key as the variable value.
 6. Click "OK" to save the changes.
 
-**macOS and Linux:**
-
-1. Open your terminal.
-2. Add the following line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`):
-
-```bash
-export GEMINI_API_KEY="YOUR_API_KEY"
-```
-
-3. Replace "YOUR_API_KEY" with your actual API key.
-4. Save the file and either restart your terminal or source the configuration file (e.g., `source ~/.bashrc`).
-
 ## Known Issues
 
 * **Complex Initial Drafts:** The writer may struggle with complex initial status updates and could go into indefinite loops if it cannot make the initial draft concise enough to write content within the character limit.
